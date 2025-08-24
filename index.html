@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deno WebTransport Sample</title>
+    <style>
+      /* Reset */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      * {
+        margin: 0;
+      }
+
+      :root {
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        background-color: #f1f1f1;
+        color: #010101;
+        height: 100vh;
+        font-optical-sizing: auto;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+          Helverica, Arial, sans-serif;
+        min-width: 320px;
+        min-height: 100vh;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      function appendLog(message) {
+        const p = document.createElement("p");
+        p.textContent = message;
+        document.body.appendChild(p);
+      }
+
+      globalThis.addEventListener("load", async () => {
+        const url = "https://localhost:4433";
+        appendLog(`Connecting to WebTransport server at ${url}`);
+        try {
+          const wt = new WebTransport(url);
+          appendLog("Wait for client.ready...");
+          await wt.ready;
+          appendLog("Connected.");
+
+          // create Streams
+          const { readable, writable } = await wt
+            .createBidirectionalStream();
+
+          appendLog("Get writer.ready...");
+          const writer = writable.getWriter();
+          await writer.ready;
+          await writer.write(
+            (new TextEncoder()).encode("Hello from client!"),
+          );
+          writer.releaseLock();
+          appendLog("Sent message: Hello from client!");
+
+          await (async () => {
+            const reader = readable.getReader();
+            const response = await reader.read();
+            appendLog(
+              `Received message: ${
+                new TextDecoder().decode(response.value)
+              }`,
+            );
+            reader.releaseLock();
+          })();
+
+          wt.close({
+            closeCode: 0,
+            reason: "done",
+          });
+          appendLog("Wait for transport.close...");
+          await wt.closed;
+          appendLog("Transport closed.");
+        } catch (error) {
+          appendLog(
+            `Failed to connect to WebTransport server: ${error.message}`,
+          );
+          console.error(
+            `Failed to connect to WebTransport server: ${error}`,
+          );
+        }
+      });
+    </script>
+  </body>
+</html>
